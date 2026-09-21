@@ -1,0 +1,80 @@
+# ESP32-S3 + OV2640 试纸采集基线配置
+# 说明：OV2640 通常没有自动对焦。focus.* 仅记录机械镜头调焦目标，不能由传感器软件自动执行。
+version: 1
+sensor:
+  model: OV2640
+  autofocus: false
+  focus:
+    mode: manual_lens
+    working_distance_cm: 17.0
+    acceptable_distance_cm: [15.0, 20.0]
+    procedure: >-
+      将试纸放在最终检测位置，显示清晰预览，缓慢旋转镜头镜筒，
+      以色块边缘和试纸纹理最清晰为准，然后固定镜筒。
+  xclk_hz: 20000000
+
+image:
+  pixel_format: JPEG
+  frame_size: VGA        # 640x480，减少放大造成的模糊；网络负载会增加
+  jpeg_quality: 12       # ESP-IDF OV 系列：0 最好，63 最差
+  frame_buffers: 2
+  frame_buffer_location: PSRAM
+  grab_mode: LATEST      # 丢弃旧帧，避免缓冲区显示滞后
+  stream_interval_ms: 33
+
+exposure:
+  # 先自动曝光稳定，再锁定；正式测量期间避免每帧亮度跳变
+  auto_exposure: true
+  settle_frames: 8
+  lock_after_settle: true
+  target_gray_level: 128
+  allow_overexposure_fraction: 0.01
+  allow_underexposure_fraction: 0.02
+  manual_exposure: false
+  exposure_value: 0
+
+white_balance:
+  auto: true
+  settle_frames: 8
+  lock_after_settle: false
+  reference: D65
+  manual_gain: false
+  ov2640_preset: auto      # 0=auto, 1=sunny, 2=cloudy, 3=office, 4=home
+  rgb_gain:
+    red: 1.00
+    green: 1.00
+    blue: 1.00
+  # rgb_gain 是标定记录；当前 OV2640 驱动未提供通用独立 RGB 增益 API。
+
+light:
+  enabled: true
+  warmup_ms: 1000
+  pwm: false
+  constant_current: true
+  avoid_direct_reflection: true
+
+output:
+  http_single_frame: /capture.jpg
+  http_stream: /stream
+  content_type: image/jpeg
+  cache_control: no-store
+  transport: MJPEG
+
+quality_gate:
+  min_sharpness: 35.0
+  max_highlight_fraction: 0.01
+  max_frame_age_ms: 250
+  require_complete_jpeg: true
+
+classification:
+  color_space: CIELAB
+  delta_e: CIEDE2000
+  reference_folders:
+    nh: NH
+    nitrate: nitrate
+    nitrite: nitrite
+  concentration_from_filename: true
+  stable_frames: 3
+  detection_cycle_seconds: 3
+
+
